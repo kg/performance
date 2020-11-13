@@ -29,6 +29,7 @@ namespace MicroBenchmarks
                 argsList = CommandLineOptions.ParseAndRemoveStringsParameter(argsList, "--exclusion-filter", out exclusionFilterValue);
                 argsList = CommandLineOptions.ParseAndRemoveStringsParameter(argsList, "--category-exclusion-filter", out categoryExclusionFilterValue);
                 CommandLineOptions.ParseAndRemoveBooleanParameter(argsList, "--disasm-diff", out getDiffableDisasm);
+                argsList.Add("--keepfiles");
 
                 CommandLineOptions.ValidatePartitionParameters(partitionCount, partitionIndex);
             }
