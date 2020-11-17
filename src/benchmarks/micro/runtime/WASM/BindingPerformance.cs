@@ -176,4 +176,55 @@ for (var i = 0; i < 1000; i++)
         if (exceptionalResult != 0)
             throw new Exception("InvokeJS failed " + res);
     }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void CallMethodUnsafeDirect_Void ()
+    {
+        var res = Interop.Runtime.InvokeJS(
+@"var methodPtr = Module.mono_method_resolve(""[MicroBenchmarks] BP.BenchmarkExports:VoidAction"");
+if (!methodPtr) throw new Error(""method not resolved"");
+var buffer = Module._malloc(64);
+Module.HEAP8.fill(0, buffer, 64);
+var invokeMethod = Module.cwrap ('mono_wasm_invoke_method', 'number', ['number', 'number', 'number', 'number']);
+for (var i = 0; i < 1000; i++)
+    invokeMethod(methodPtr, 0, buffer + 16, buffer);
+", out int exceptionalResult
+        );
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void InvokeJS_NoResult ()
+    {
+        var res = Interop.Runtime.InvokeJS(@"if (globalThis['nonexistent'] !== undefined) throw new Error('what')", out int exceptionalResult);
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void InvokeJS_NumericResult ()
+    {
+        var res = Interop.Runtime.InvokeJS(@"1 + 2", out int exceptionalResult);
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+        else if (res != "3")
+            throw new Exception("InvokeJS returned invalid result " + res);
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void InvokeJS_StringResult ()
+    {
+        var testString = "the quick brown fox jumped over the lazy dogs. ";
+        testString = testString + testString + testString + testString;
+        var res = Interop.Runtime.InvokeJS($"'{testString}'", out int exceptionalResult);
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+        else if (res != testString)
+            throw new Exception("InvokeJS returned invalid result " + res);
+    }
 }
