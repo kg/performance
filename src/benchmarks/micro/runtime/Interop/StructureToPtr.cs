@@ -7,7 +7,7 @@ using MicroBenchmarks;
 using System;
 using System.Runtime.InteropServices;
 
-namespace Interop
+namespace InteropBenchmarks
 {
     [BenchmarkCategory(Categories.Runtime)]
     public class StructureToPtr

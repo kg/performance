@@ -24,7 +24,39 @@ internal static partial class Interop
 }
 
 namespace BP {
+    public struct BenchmarkTestStruct {
+        public int I;
+
+        private static BenchmarkTestStruct JSToManaged (int i) {
+            return new BenchmarkTestStruct { I = i };
+        }
+
+        private static int ManagedToJS (BenchmarkTestStruct ct) {
+            return ct.I;
+        }
+    }
+
+    public struct BenchmarkTestStructWithFilter {
+        public int I;
+
+        private static BenchmarkTestStructWithFilter JSToManaged (double d) {
+            return new BenchmarkTestStructWithFilter { I = (int)d };
+        }
+
+        private static double ManagedToJS (BenchmarkTestStructWithFilter ct) {
+            return (double)ct.I;
+        }
+    }
+
     public static class BenchmarkExports {
+        public static void AcceptCustomStruct (BenchmarkTestStruct s) {
+            ;
+        }
+
+        public static void AcceptCustomStructWithFilter (BenchmarkTestStructWithFilter s) {
+            ;
+        }
+
         public static void VoidAction () {
             ;
         }
@@ -97,7 +129,7 @@ for (var i = 0; i < 1000; i++)
     public void CallMethod_ReturnString ()
     {
         var res = Interop.Runtime.InvokeJS(
-@"var args = [""string literal with embedded null \0\0 ok""];
+@"var args = [""string literal with embedded null \0\0 hmm""];
 for (var i = 0; i < 1000; i++)
     Module.mono_call_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnString"", args, ""s"");
 ", out int exceptionalResult
@@ -111,7 +143,7 @@ for (var i = 0; i < 1000; i++)
     public void CallMethod_ReturnInternedString ()
     {
         var res = Interop.Runtime.InvokeJS(
-@"var args = [""string literal with embedded null \0\0 ok""];
+@"var args = [""string literal with embedded null \0\0 yey""];
 for (var i = 0; i < 1000; i++)
     Module.mono_call_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnString"", args, ""S"");
 ", out int exceptionalResult
@@ -125,7 +157,7 @@ for (var i = 0; i < 1000; i++)
     public void CallMethod_ReturnSymbol ()
     {
         var res = Interop.Runtime.InvokeJS(
-@"var args = [Symbol.for(""string literal with embedded null \0\0 symbol"")];
+@"var args = [Symbol.for(""string literal with embedded null \0\0 sym"")];
 for (var i = 0; i < 1000; i++)
     Module.mono_call_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnString"", args, ""S"");
 ", out int exceptionalResult
@@ -156,6 +188,36 @@ for (var i = 0; i < 1000; i++)
 @"var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:Sum"", ""ii"");
 for (var i = 0; i < 1000; i++)
     bound(1, 2);
+", out int exceptionalResult
+        );
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void CallBoundMethod_ReturnString ()
+    {
+        var res = Interop.Runtime.InvokeJS(
+@"var literal1 = ""string literal with embedded null \0\0 wow"";
+var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnString"", ""s"");
+for (var i = 0; i < 1000; i++)
+    bound(literal1);
+", out int exceptionalResult
+        );
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void CallBoundMethod_ReturnStringAutoSignature ()
+    {
+        var res = Interop.Runtime.InvokeJS(
+@"var literal1 = ""string literal with embedded null \0\0 zow"";
+var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnString"", ""a"");
+for (var i = 0; i < 1000; i++)
+    bound(literal1);
 ", out int exceptionalResult
         );
         if (exceptionalResult != 0)
@@ -227,4 +289,35 @@ for (var i = 0; i < 1000; i++)
         else if (res != testString)
             throw new Exception("InvokeJS returned invalid result " + res);
     }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void CallBoundMethod_PassStructWithManagedConverter ()
+    {
+        var res = Interop.Runtime.InvokeJS(
+@"var val = 1234;
+var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:AcceptCustomStruct"", ""a"");
+for (var i = 0; i < 1000; i++)
+    bound(val);
+", out int exceptionalResult
+        );
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void CallBoundMethod_PassStructWithManagedConverterAndFilter ()
+    {
+        var res = Interop.Runtime.InvokeJS(
+@"var val = 2345.678;
+var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:AcceptCustomStructWithFilter"", ""a"");
+for (var i = 0; i < 1000; i++)
+    bound(val);
+", out int exceptionalResult
+        );
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+    }
+
 }
