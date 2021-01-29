@@ -31,20 +31,38 @@ namespace BP {
             return new BenchmarkTestStruct { I = i };
         }
 
-        private static int ManagedToJS (BenchmarkTestStruct ct) {
-            return ct.I;
+        private static int ManagedToJS (ref BenchmarkTestStruct cts) {
+            return cts.I;
         }
     }
 
     public struct BenchmarkTestStructWithFilter {
-        public int I;
+        public double D;
+
+        private static string JSToManaged_PreFilter () => "(value + 0.1)";
+        private static string ManagedToJS_PostFilter () => "(value | 0)";
 
         private static BenchmarkTestStructWithFilter JSToManaged (double d) {
-            return new BenchmarkTestStructWithFilter { I = (int)d };
+            return new BenchmarkTestStructWithFilter { D = d };
         }
 
-        private static double ManagedToJS (BenchmarkTestStructWithFilter ct) {
-            return (double)ct.I;
+        private static double ManagedToJS (ref BenchmarkTestStructWithFilter cts) {
+            return cts.D;
+        }
+    }
+
+    public class BenchmarkTestClassWithFilter {
+        public double D;
+
+        private static string JSToManaged_PreFilter () => "(value + 0.1)";
+        private static string ManagedToJS_PostFilter () => "(value | 0)";
+
+        private static BenchmarkTestClassWithFilter JSToManaged (double d) {
+            return new BenchmarkTestClassWithFilter { D = d };
+        }
+
+        private static double ManagedToJS (BenchmarkTestClassWithFilter cc) {
+            return cc.D;
         }
     }
 
@@ -55,6 +73,22 @@ namespace BP {
 
         public static void AcceptCustomStructWithFilter (BenchmarkTestStructWithFilter s) {
             ;
+        }
+
+        public static BenchmarkTestStruct ReturnCustomStruct (BenchmarkTestStruct s) {
+            return s;
+        }
+
+        public static BenchmarkTestStructWithFilter ReturnCustomStructWithFilter (BenchmarkTestStructWithFilter s) {
+            return s;
+        }
+
+        public static BenchmarkTestClassWithFilter ReturnCustomClassWithFilter (BenchmarkTestClassWithFilter s) {
+            return s;
+        }
+
+        public static double ReturnDouble (double d) {
+            return d;
         }
 
         public static void VoidAction () {
@@ -312,6 +346,51 @@ for (var i = 0; i < 1000; i++)
         var res = Interop.Runtime.InvokeJS(
 @"var val = 2345.678;
 var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:AcceptCustomStructWithFilter"", ""a"");
+for (var i = 0; i < 1000; i++)
+    bound(val);
+", out int exceptionalResult
+        );
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void CallBoundMethod_ReturnStructWithManagedConverterAndFilter ()
+    {
+        var res = Interop.Runtime.InvokeJS(
+@"var val = 2345.678;
+var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnCustomStructWithFilter"", ""a"");
+for (var i = 0; i < 1000; i++)
+    bound(val);
+", out int exceptionalResult
+        );
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void CallBoundMethod_ReturnClassWithManagedConverterAndFilter ()
+    {
+        var res = Interop.Runtime.InvokeJS(
+@"var val = 2345.678;
+var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnCustomClassWithFilter"", ""a"");
+for (var i = 0; i < 1000; i++)
+    bound(val);
+", out int exceptionalResult
+        );
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void CallBoundMethod_ReturnDouble ()
+    {
+        var res = Interop.Runtime.InvokeJS(
+@"var val = 2345.678;
+var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnDouble"", ""d"");
 for (var i = 0; i < 1000; i++)
     bound(val);
 ", out int exceptionalResult
