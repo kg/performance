@@ -13,6 +13,19 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices.JavaScript;
+
+namespace System.Runtime.InteropServices.JavaScript {
+    [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
+    public class CustomMarshalerAttribute : Attribute {
+        private Type MarshalerType;
+        
+        public CustomMarshalerAttribute (Type marshalerType)
+            : base () {
+            MarshalerType = marshalerType;
+        }
+    }
+}
 
 internal static partial class Interop
 {
@@ -24,46 +37,55 @@ internal static partial class Interop
 }
 
 namespace BP {
-    public struct BenchmarkTestStruct {
-        public int I;
-
-        private static BenchmarkTestStruct JSToManaged (int i) {
+    public class BenchmarkTestStructMarshaler {
+        public BenchmarkTestStruct JSToManaged (int i) {
             return new BenchmarkTestStruct { I = i };
         }
 
-        private static int ManagedToJS (ref BenchmarkTestStruct cts) {
+        public int ManagedToJS (ref BenchmarkTestStruct cts) {
             return cts.I;
         }
     }
 
-    public struct BenchmarkTestStructWithFilter {
-        public double D;
+    [CustomMarshaler(typeof(BenchmarkTestStructMarshaler))]
+    public struct BenchmarkTestStruct {
+        public int I;
+    }
 
-        private static string JSToManaged_PreFilter () => "(value + 0.1)";
-        private static string ManagedToJS_PostFilter () => "(value | 0)";
+    public class BenchmarkTestStructWithFilterMarshaler {
+        public string JSToManaged_PreFilter () => "(value + 0.1)";
+        public string ManagedToJS_PostFilter () => "(value | 0)";
 
-        private static BenchmarkTestStructWithFilter JSToManaged (double d) {
+        public BenchmarkTestStructWithFilter JSToManaged (double d) {
             return new BenchmarkTestStructWithFilter { D = d };
         }
 
-        private static double ManagedToJS (ref BenchmarkTestStructWithFilter cts) {
+        public double ManagedToJS (ref BenchmarkTestStructWithFilter cts) {
             return cts.D;
         }
     }
 
-    public class BenchmarkTestClassWithFilter {
+    [CustomMarshaler(typeof(BenchmarkTestStructWithFilterMarshaler))]
+    public struct BenchmarkTestStructWithFilter {
         public double D;
+    }
 
-        private static string JSToManaged_PreFilter () => "(value + 0.1)";
-        private static string ManagedToJS_PostFilter () => "(value | 0)";
+    public class BenchmarkTestClassWithFilterMarshaler {
+        public string JSToManaged_PreFilter () => "(value + 0.1)";
+        public string ManagedToJS_PostFilter () => "(value | 0)";
 
-        private static BenchmarkTestClassWithFilter JSToManaged (double d) {
+        public BenchmarkTestClassWithFilter JSToManaged (double d) {
             return new BenchmarkTestClassWithFilter { D = d };
         }
 
-        private static double ManagedToJS (BenchmarkTestClassWithFilter cc) {
+        public double ManagedToJS (BenchmarkTestClassWithFilter cc) {
             return cc.D;
         }
+    }
+
+    [CustomMarshaler(typeof(BenchmarkTestClassWithFilterMarshaler))]
+    public class BenchmarkTestClassWithFilter {
+        public double D;
     }
 
     public static class BenchmarkExports {
