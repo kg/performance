@@ -38,11 +38,11 @@ internal static partial class Interop
 
 namespace BP {
     public class BenchmarkTestStructMarshaler {
-        public BenchmarkTestStruct JSToManaged (int i) {
+        public BenchmarkTestStruct FromJavaScript (int i) {
             return new BenchmarkTestStruct { I = i };
         }
 
-        public int ManagedToJS (ref BenchmarkTestStruct cts) {
+        public int ToJavaScript (ref BenchmarkTestStruct cts) {
             return cts.I;
         }
     }
@@ -53,14 +53,14 @@ namespace BP {
     }
 
     public class BenchmarkTestStructWithFilterMarshaler {
-        public string JSToManaged_PreFilter () => "(value + 0.1)";
-        public string ManagedToJS_PostFilter () => "(value | 0)";
+        public string FromJavaScriptPreFilter () => "(value + 0.1)";
+        public string ToJavaScriptPostFilter () => "(value | 0)";
 
-        public BenchmarkTestStructWithFilter JSToManaged (double d) {
+        public BenchmarkTestStructWithFilter FromJavaScript (double d) {
             return new BenchmarkTestStructWithFilter { D = d };
         }
 
-        public double ManagedToJS (ref BenchmarkTestStructWithFilter cts) {
+        public double ToJavaScript (ref BenchmarkTestStructWithFilter cts) {
             return cts.D;
         }
     }
@@ -71,14 +71,14 @@ namespace BP {
     }
 
     public class BenchmarkTestClassWithFilterMarshaler {
-        public string JSToManaged_PreFilter () => "(value + 0.1)";
-        public string ManagedToJS_PostFilter () => "(value | 0)";
+        public string FromJavaScriptPreFilter () => "(value + 0.1)";
+        public string ToJavaScriptPostFilter () => "(value | 0)";
 
-        public BenchmarkTestClassWithFilter JSToManaged (double d) {
+        public BenchmarkTestClassWithFilter FromJavaScript (double d) {
             return new BenchmarkTestClassWithFilter { D = d };
         }
 
-        public double ManagedToJS (BenchmarkTestClassWithFilter cc) {
+        public double ToJavaScript (BenchmarkTestClassWithFilter cc) {
             return cc.D;
         }
     }
