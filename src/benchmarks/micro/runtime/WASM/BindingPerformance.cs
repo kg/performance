@@ -17,10 +17,10 @@ using System.Runtime.InteropServices.JavaScript;
 
 namespace System.Runtime.InteropServices.JavaScript {
     [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
-    public class CustomMarshalerAttribute : Attribute {
+    public class CustomJavaScriptMarshalerAttribute : Attribute {
         private Type MarshalerType;
         
-        public CustomMarshalerAttribute (Type marshalerType)
+        public CustomJavaScriptMarshalerAttribute (Type marshalerType)
             : base () {
             MarshalerType = marshalerType;
         }
@@ -38,52 +38,52 @@ internal static partial class Interop
 
 namespace BP {
     public class BenchmarkTestStructMarshaler {
-        public BenchmarkTestStruct FromJavaScript (int i) {
+        public static BenchmarkTestStruct FromJavaScript (int i) {
             return new BenchmarkTestStruct { I = i };
         }
 
-        public int ToJavaScript (ref BenchmarkTestStruct cts) {
+        public static int ToJavaScript (ref BenchmarkTestStruct cts) {
             return cts.I;
         }
     }
 
-    [CustomMarshaler(typeof(BenchmarkTestStructMarshaler))]
+    [CustomJavaScriptMarshaler(typeof(BenchmarkTestStructMarshaler))]
     public struct BenchmarkTestStruct {
         public int I;
     }
 
     public class BenchmarkTestStructWithFilterMarshaler {
-        public string FromJavaScriptPreFilter () => "(value + 0.1)";
-        public string ToJavaScriptPostFilter () => "(value | 0)";
+        public static string FromJavaScriptPreFilter () => "(value + 0.1)";
+        public static string ToJavaScriptPostFilter () => "(value | 0)";
 
-        public BenchmarkTestStructWithFilter FromJavaScript (double d) {
+        public static BenchmarkTestStructWithFilter FromJavaScript (double d) {
             return new BenchmarkTestStructWithFilter { D = d };
         }
 
-        public double ToJavaScript (ref BenchmarkTestStructWithFilter cts) {
+        public static double ToJavaScript (ref BenchmarkTestStructWithFilter cts) {
             return cts.D;
         }
     }
 
-    [CustomMarshaler(typeof(BenchmarkTestStructWithFilterMarshaler))]
+    [CustomJavaScriptMarshaler(typeof(BenchmarkTestStructWithFilterMarshaler))]
     public struct BenchmarkTestStructWithFilter {
         public double D;
     }
 
     public class BenchmarkTestClassWithFilterMarshaler {
-        public string FromJavaScriptPreFilter () => "(value + 0.1)";
-        public string ToJavaScriptPostFilter () => "(value | 0)";
+        public static string FromJavaScriptPreFilter () => "(value + 0.1)";
+        public static string ToJavaScriptPostFilter () => "(value | 0)";
 
-        public BenchmarkTestClassWithFilter FromJavaScript (double d) {
+        public static BenchmarkTestClassWithFilter FromJavaScript (double d) {
             return new BenchmarkTestClassWithFilter { D = d };
         }
 
-        public double ToJavaScript (BenchmarkTestClassWithFilter cc) {
+        public static double ToJavaScript (BenchmarkTestClassWithFilter cc) {
             return cc.D;
         }
     }
 
-    [CustomMarshaler(typeof(BenchmarkTestClassWithFilterMarshaler))]
+    [CustomJavaScriptMarshaler(typeof(BenchmarkTestClassWithFilterMarshaler))]
     public class BenchmarkTestClassWithFilter {
         public double D;
     }
