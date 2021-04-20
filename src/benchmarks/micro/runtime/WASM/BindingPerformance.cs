@@ -133,6 +133,17 @@ namespace BP {
 
 public class BindingPerformance
 {
+    static string InvokeJSExpression;
+
+    static BindingPerformance () {
+        var sb = new System.Text.StringBuilder();
+        sb.Append("if (globalThis['nonexistent'] !== undefined)");
+        sb.Append(' ');
+        sb.Append("throw new Error('what'");
+        sb.Append(new string(')', 1));
+        InvokeJSExpression = sb.ToString();
+    }
+
     [GlobalSetup]
     public void Setup()
     {
@@ -228,7 +239,7 @@ for (var i = 0; i < 1000; i++)
     {
         var res = Interop.Runtime.InvokeJS(
 @"var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:VoidAction"", """");
-for (var i = 0; i < 1000; i++)
+for (var i = 0; i < 10000; i++)
     bound();
 ", out int exceptionalResult
         );
@@ -242,7 +253,7 @@ for (var i = 0; i < 1000; i++)
     {
         var res = Interop.Runtime.InvokeJS(
 @"var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:Sum"", ""ii"");
-for (var i = 0; i < 1000; i++)
+for (var i = 0; i < 10000; i++)
     bound(1, 2);
 ", out int exceptionalResult
         );
@@ -257,22 +268,7 @@ for (var i = 0; i < 1000; i++)
         var res = Interop.Runtime.InvokeJS(
 @"var literal1 = ""string literal with embedded null \0\0 wow"";
 var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnString"", ""s"");
-for (var i = 0; i < 1000; i++)
-    bound(literal1);
-", out int exceptionalResult
-        );
-        if (exceptionalResult != 0)
-            throw new Exception("InvokeJS failed " + res);
-    }
-
-    [Benchmark]
-    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
-    public void CallBoundMethod_ReturnStringAutoSignature ()
-    {
-        var res = Interop.Runtime.InvokeJS(
-@"var literal1 = ""string literal with embedded null \0\0 zow"";
-var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnString"", ""a"");
-for (var i = 0; i < 1000; i++)
+for (var i = 0; i < 10000; i++)
     bound(literal1);
 ", out int exceptionalResult
         );
@@ -287,7 +283,7 @@ for (var i = 0; i < 1000; i++)
         var res = Interop.Runtime.InvokeJS(
 @"var literal2 = ""string literal with embedded null \0\0 yay"";
 var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnString"", ""S"");
-for (var i = 0; i < 1000; i++)
+for (var i = 0; i < 10000; i++)
     bound(literal2);
 ", out int exceptionalResult
         );
@@ -305,10 +301,19 @@ if (!methodPtr) throw new Error(""method not resolved"");
 var buffer = Module._malloc(64);
 Module.HEAP8.fill(0, buffer, 64);
 var invokeMethod = Module.cwrap ('mono_wasm_invoke_method', 'number', ['number', 'number', 'number', 'number']);
-for (var i = 0; i < 1000; i++)
+for (var i = 0; i < 10000; i++)
     invokeMethod(methodPtr, 0, buffer + 16, buffer);
 ", out int exceptionalResult
         );
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void InvokeJS_NoResult_NonLiteralString ()
+    {
+        var res = Interop.Runtime.InvokeJS(InvokeJSExpression, out int exceptionalResult);
         if (exceptionalResult != 0)
             throw new Exception("InvokeJS failed " + res);
     }
@@ -348,12 +353,43 @@ for (var i = 0; i < 1000; i++)
 
     [Benchmark]
     [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void CallBoundMethod_ReturnDouble ()
+    {
+        var res = Interop.Runtime.InvokeJS(
+@"var val = 2345.678;
+var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnDouble"", ""d"");
+for (var i = 0; i < 10000; i++)
+    bound(val);
+", out int exceptionalResult
+        );
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+    }
+
+#if FALSE
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void CallBoundMethod_ReturnStringAutoSignature ()
+    {
+        var res = Interop.Runtime.InvokeJS(
+@"var literal1 = ""string literal with embedded null \0\0 zow"";
+var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnString"", ""a"");
+for (var i = 0; i < 10000; i++)
+    bound(literal1);
+", out int exceptionalResult
+        );
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
     public void CallBoundMethod_PassStructWithManagedConverter ()
     {
         var res = Interop.Runtime.InvokeJS(
 @"var val = 1234;
 var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:AcceptCustomStruct"", ""a"");
-for (var i = 0; i < 1000; i++)
+for (var i = 0; i < 10000; i++)
     bound(val);
 ", out int exceptionalResult
         );
@@ -368,7 +404,7 @@ for (var i = 0; i < 1000; i++)
         var res = Interop.Runtime.InvokeJS(
 @"var val = 2345.678;
 var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:AcceptCustomStructWithFilter"", ""a"");
-for (var i = 0; i < 1000; i++)
+for (var i = 0; i < 10000; i++)
     bound(val);
 ", out int exceptionalResult
         );
@@ -383,7 +419,7 @@ for (var i = 0; i < 1000; i++)
         var res = Interop.Runtime.InvokeJS(
 @"var val = 2345.678;
 var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnCustomStructWithFilter"", ""a"");
-for (var i = 0; i < 1000; i++)
+for (var i = 0; i < 10000; i++)
     bound(val);
 ", out int exceptionalResult
         );
@@ -398,27 +434,12 @@ for (var i = 0; i < 1000; i++)
         var res = Interop.Runtime.InvokeJS(
 @"var val = 2345.678;
 var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnCustomClassWithFilter"", ""a"");
-for (var i = 0; i < 1000; i++)
+for (var i = 0; i < 10000; i++)
     bound(val);
 ", out int exceptionalResult
         );
         if (exceptionalResult != 0)
             throw new Exception("InvokeJS failed " + res);
     }
-
-    [Benchmark]
-    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
-    public void CallBoundMethod_ReturnDouble ()
-    {
-        var res = Interop.Runtime.InvokeJS(
-@"var val = 2345.678;
-var bound = Module.mono_bind_static_method(""[MicroBenchmarks] BP.BenchmarkExports:ReturnDouble"", ""d"");
-for (var i = 0; i < 1000; i++)
-    bound(val);
-", out int exceptionalResult
-        );
-        if (exceptionalResult != 0)
-            throw new Exception("InvokeJS failed " + res);
-    }
-
+#endif
 }
