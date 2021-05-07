@@ -135,8 +135,8 @@ public class BindingPerformance
 {
     static string InvokeJSExpression, InvokeJSExpressionDifferentValue;
 
-    const int InvokeIterationCountSmall = 1000,
-        InvokeIterationCountLarge = 10000;
+    const int InvokeIterationCountSmall = 100,
+        InvokeIterationCountLarge = 100;
 
     static BindingPerformance () {
         var sb = new System.Text.StringBuilder();
