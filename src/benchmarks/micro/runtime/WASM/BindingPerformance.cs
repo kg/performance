@@ -13,19 +13,6 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using System.Runtime.InteropServices.JavaScript;
-
-namespace System.Runtime.InteropServices.JavaScript {
-    [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
-    public class CustomJavaScriptMarshalerAttribute : Attribute {
-        private Type MarshalerType;
-        
-        public CustomJavaScriptMarshalerAttribute (Type marshalerType)
-            : base () {
-            MarshalerType = marshalerType;
-        }
-    }
-}
 
 internal static partial class Interop
 {
@@ -42,37 +29,35 @@ namespace BP {
             return new BenchmarkTestStruct { I = i };
         }
 
-        public static int ToJavaScript (ref BenchmarkTestStruct cts) {
+        public static int ToJavaScript (in BenchmarkTestStruct cts) {
             return cts.I;
         }
     }
 
-    [CustomJavaScriptMarshaler(typeof(BenchmarkTestStructMarshaler))]
     public struct BenchmarkTestStruct {
         public int I;
     }
 
     public class BenchmarkTestStructWithFilterMarshaler {
-        public static string FromJavaScriptPreFilter () => "(value + 0.1)";
-        public static string ToJavaScriptPostFilter () => "(value | 0)";
+        public static string FromJavaScriptPreFilter () => "return (value + 0.1)";
+        public static string ToJavaScriptPostFilter () => "return (value | 0)";
 
         public static BenchmarkTestStructWithFilter FromJavaScript (double d) {
             return new BenchmarkTestStructWithFilter { D = d };
         }
 
-        public static double ToJavaScript (ref BenchmarkTestStructWithFilter cts) {
+        public static double ToJavaScript (in BenchmarkTestStructWithFilter cts) {
             return cts.D;
         }
     }
 
-    [CustomJavaScriptMarshaler(typeof(BenchmarkTestStructWithFilterMarshaler))]
     public struct BenchmarkTestStructWithFilter {
         public double D;
     }
 
     public class BenchmarkTestClassWithFilterMarshaler {
-        public static string FromJavaScriptPreFilter () => "(value + 0.1)";
-        public static string ToJavaScriptPostFilter () => "(value | 0)";
+        public static string FromJavaScriptPreFilter () => "return (value + 0.1)";
+        public static string ToJavaScriptPostFilter () => "return (value | 0)";
 
         public static BenchmarkTestClassWithFilter FromJavaScript (double d) {
             return new BenchmarkTestClassWithFilter { D = d };
@@ -83,7 +68,6 @@ namespace BP {
         }
     }
 
-    [CustomJavaScriptMarshaler(typeof(BenchmarkTestClassWithFilterMarshaler))]
     public class BenchmarkTestClassWithFilter {
         public double D;
     }
@@ -161,6 +145,20 @@ public class BindingPerformance
 
         if (InvokeJSExpression.GetHashCode() == InvokeJSExpressionDifferentValue.GetHashCode())
             throw new Exception("Both expressions' hashcodes are the same");
+
+        // HACK: I don't like this any more than you do
+        RegisterCustomMarshaler<BP.BenchmarkTestStruct, BP.BenchmarkTestStructMarshaler>();
+        RegisterCustomMarshaler<BP.BenchmarkTestStructWithFilter, BP.BenchmarkTestStructWithFilterMarshaler>();
+        RegisterCustomMarshaler<BP.BenchmarkTestClassWithFilter, BP.BenchmarkTestClassWithFilterMarshaler>();
+    }
+
+    private static void RegisterCustomMarshaler<T, TMarshaler> () {
+        var taqn = typeof(T).AssemblyQualifiedName;
+        var maqn = typeof(TMarshaler).AssemblyQualifiedName;
+        var js = $"MONO.mono_wasm_register_custom_marshaler('{taqn}', '{maqn}')";
+        var res = Interop.Runtime.InvokeJS(js, out int exceptionalResult);
+        if (exceptionalResult != 0)
+            throw new Exception("InvokeJS failed " + res);
     }
 
     [GlobalSetup]
@@ -396,7 +394,7 @@ for (var i = 0; i < " + InvokeIterationCountLarge + @"; i++)
             throw new Exception("InvokeJS failed " + res);
     }
 
-#if FALSE
+#if TRUE
     [Benchmark]
     [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
     public void CallBoundMethod_ReturnStringAutoSignature ()
