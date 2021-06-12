@@ -172,6 +172,7 @@ public class BindingPerformance
         // HACK: Alternate name so we can measure the positive impact of string interning on the method name
         Interop.Runtime.InvokeJS("globalThis.perftest1arg2 = globalThis.perftest1arg;", out temp);
         Interop.Runtime.InvokeJS("globalThis.perfteststr = function (s) { globalThis.perftest_s = s; };", out temp);
+        Interop.Runtime.InvokeJS("globalThis.perftesturi = function (u) { globalThis.perftest_u = u; };", out temp);
     }
 
     private static void RegisterCustomMarshaler<T, TMarshaler> () {
@@ -492,8 +493,10 @@ for (var i = 0; i < " + InvokeIterationCountLarge + @"; i++)
             throw new Exception("InvokeJS failed " + res);
     }
 #endif
+    
+    const string invokeTestString = "aaaa the quick brown fox judged my sphinx of quartz. hear my vow, oh lazy dogs zzzz";
+    static readonly Uri invokeTestUri = new Uri("https://mono-wasm.invalid/subdirectory/file?query");
 
-#if TRUE
     [Benchmark]
     [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
     public void InvokeMethodIntViaInvokeJS ()
@@ -510,6 +513,18 @@ for (var i = 0; i < " + InvokeIterationCountLarge + @"; i++)
             throw new Exception("InvokeJS failed");
     }
 
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void InvokeMethodStringViaInvokeJS ()
+    {
+        for (var i = 0; i < InvokeIterationCountHuge; i++) {
+            Interop.Runtime.InvokeJS($"globalThis.perfteststr('{invokeTestString}');", out int temp);
+            if (temp != 0)
+                throw new Exception("InvokeJS failed");
+        }
+    }
+
+#if TRUE
     [Benchmark]
     [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
     public unsafe void InvokeMethodIntViaNewInvokeIcall ()
@@ -533,6 +548,62 @@ for (var i = 0; i < " + InvokeIterationCountLarge + @"; i++)
             throw new Exception("Incorrect result");
         else if (res != 0)
             throw new Exception("InvokeJS failed");
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public unsafe void InvokeMethodStringViaNewInvokeIcall ()
+    {
+        var s = String.Intern(invokeTestString);
+        GCHandle hStr = GCHandle.Alloc(s);
+        IntPtr pStr = *(IntPtr*)Unsafe.AsPointer(ref s), thandle = typeof(string).TypeHandle.Value;
+        for (var i = 0; i < InvokeIterationCountHuge; i++) {
+            var code = Interop.Runtime.InvokeJSFunction(
+                "perfteststr", 1,
+                // We could hoist the AsPointer out of the loop to try and optimize it, but
+                //  it doesn't seem to make a difference and the new API is really fast anyway.
+                thandle, pStr,
+                IntPtr.Zero, IntPtr.Zero,
+                IntPtr.Zero, IntPtr.Zero
+            );
+            if (code != 0)
+                throw new Exception("InvokeJSFunction failed");
+        }
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public unsafe void InvokeMethodUriViaNewInvokeIcall ()
+    {
+        var u = invokeTestUri;
+        GCHandle hStr = GCHandle.Alloc(u);
+        IntPtr pUri = *(IntPtr*)Unsafe.AsPointer(ref u), thandle = typeof(Uri).TypeHandle.Value;
+        for (var i = 0; i < InvokeIterationCountHuge; i++) {
+            var code = Interop.Runtime.InvokeJSFunction(
+                "perftesturi", 1,
+                thandle, pUri,
+                IntPtr.Zero, IntPtr.Zero,
+                IntPtr.Zero, IntPtr.Zero
+            );
+            if (code != 0)
+                throw new Exception("InvokeJSFunction failed");
+        }
+    }
+
+#endif
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void InvokeMethodStringViaInvokeJSWithArgs () {
+        int exception;
+        var thisHandle = GetGlobalThisAsJSObjectHandle();
+        var args = new object[] { invokeTestString };
+
+        for (var i = 0; i < InvokeIterationCountHuge; i++) {
+            object res = Interop.Runtime.InvokeJSWithArgs(thisHandle, "perfteststr", args, out exception);
+            if (exception != 0)
+                throw new Exception("InvokeJSWithArgs failed");
+        }
     }
 
     [Benchmark]
@@ -578,55 +649,20 @@ for (var i = 0; i < " + InvokeIterationCountLarge + @"; i++)
         else if (exception != 0)
             throw new Exception("InvokeJS failed");        
     }
-    
-    const string invokeTestString = "aaaa the quick brown fox judged my sphinx of quartz. hear my vow, oh lazy dogs zzzz";
 
     [Benchmark]
     [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
-    public void InvokeMethodStringViaInvokeJS ()
-    {
-        for (var i = 0; i < InvokeIterationCountHuge; i++) {
-            Interop.Runtime.InvokeJS($"globalThis.perfteststr('{invokeTestString}');", out int temp);
-            if (temp != 0)
-                throw new Exception("InvokeJS failed");
-        }
-    }
-
-    [Benchmark]
-    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
-    public unsafe void InvokeMethodStringViaNewInvokeIcall ()
-    {
-        var s = String.Intern(invokeTestString);
-        GCHandle hStr = GCHandle.Alloc(s);
-        IntPtr pStr = *(IntPtr*)Unsafe.AsPointer(ref s), thandle = typeof(string).TypeHandle.Value;
-        for (var i = 0; i < InvokeIterationCountHuge; i++) {
-            var code = Interop.Runtime.InvokeJSFunction(
-                "perfteststr", 1,
-                // We could hoist the AsPointer out of the loop to try and optimize it, but
-                //  it doesn't seem to make a difference and the new API is really fast anyway.
-                thandle, pStr,
-                IntPtr.Zero, IntPtr.Zero,
-                IntPtr.Zero, IntPtr.Zero
-            );
-            if (code != 0)
-                throw new Exception("InvokeJSFunction failed");
-        }
-    }
-
-    [Benchmark]
-    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
-    public void InvokeMethodStringViaInvokeJSWithArgs () {
+    public void InvokeMethodUriViaInvokeJSWithArgs () {
         int exception;
         var thisHandle = GetGlobalThisAsJSObjectHandle();
-        var args = new object[] { invokeTestString };
+        var args = new object[] { invokeTestUri };
 
         for (var i = 0; i < InvokeIterationCountHuge; i++) {
-            object res = Interop.Runtime.InvokeJSWithArgs(thisHandle, "perfteststr", args, out exception);
+            object res = Interop.Runtime.InvokeJSWithArgs(thisHandle, "perftesturi", args, out exception);
             if (exception != 0)
                 throw new Exception("InvokeJSWithArgs failed");
         }
     }
-
 
     private static int GetGlobalThisAsJSObjectHandle () {
         int exception;
@@ -643,6 +679,4 @@ for (var i = 0; i < " + InvokeIterationCountLarge + @"; i++)
             throw new Exception($"JSHandle was null");
         return (int)thisHandleBoxed;
     }
-
-#endif
 }
