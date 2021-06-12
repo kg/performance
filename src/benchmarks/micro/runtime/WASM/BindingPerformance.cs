@@ -4,6 +4,9 @@
 //
 #pragma warning disable CS0162
 
+#define NEWAPI
+#define NEWINVOKE
+
 using System;
 using System.Linq;
 using BenchmarkDotNet.Attributes;
@@ -168,20 +171,29 @@ public class BindingPerformance
         RegisterCustomMarshaler<BP.BenchmarkTestClassWithFilter, BP.BenchmarkTestClassWithFilterMarshaler>();
 
         int temp;
+#if NEWAPI
+        Interop.Runtime.InvokeJS($"MONO.mono_wasm_register_custom_marshaler('System.Uri', 'System.Runtime.InteropServices.JavaScript.UriMarshaler')", out temp);
+        Interop.Runtime.InvokeJS($"MONO.mono_wasm_register_custom_marshaler('System.DateTime', 'System.Runtime.InteropServices.JavaScript.DateTimeMarshaler')", out temp);
+        Interop.Runtime.InvokeJS($"MONO.mono_wasm_register_custom_marshaler('System.DateTimeOffset', 'System.Runtime.InteropServices.JavaScript.DateTimeOffsetMarshaler')", out temp);
+#endif
+
         Interop.Runtime.InvokeJS("globalThis.perftest1arg = function (n) { globalThis.perftest_n = n | 0; };", out temp);
         // HACK: Alternate name so we can measure the positive impact of string interning on the method name
         Interop.Runtime.InvokeJS("globalThis.perftest1arg2 = globalThis.perftest1arg;", out temp);
         Interop.Runtime.InvokeJS("globalThis.perfteststr = function (s) { globalThis.perftest_s = s; };", out temp);
         Interop.Runtime.InvokeJS("globalThis.perftesturi = function (u) { globalThis.perftest_u = u; };", out temp);
+        Interop.Runtime.InvokeJS("globalThis.perftestdate = function (dt) { globalThis.perftest_dt = dt; };", out temp);
     }
 
     private static void RegisterCustomMarshaler<T, TMarshaler> () {
+#if NEWAPI
         var taqn = typeof(T).AssemblyQualifiedName;
         var maqn = typeof(TMarshaler).AssemblyQualifiedName;
         var js = $"MONO.mono_wasm_register_custom_marshaler('{taqn}', '{maqn}')";
         var res = Interop.Runtime.InvokeJS(js, out int exceptionalResult);
         if (exceptionalResult != 0)
             throw new Exception("InvokeJS failed " + res);
+#endif
     }
 
     [GlobalSetup]
@@ -417,7 +429,7 @@ for (var i = 0; i < " + InvokeIterationCountLarge + @"; i++)
             throw new Exception("InvokeJS failed " + res);
     }
 
-#if TRUE
+#if NEWAPI
     [Benchmark]
     [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
     public void CallBoundMethod_ReturnStringAutoSignature ()
@@ -496,6 +508,8 @@ for (var i = 0; i < " + InvokeIterationCountLarge + @"; i++)
     
     const string invokeTestString = "aaaa the quick brown fox judged my sphinx of quartz. hear my vow, oh lazy dogs zzzz";
     static readonly Uri invokeTestUri = new Uri("https://mono-wasm.invalid/subdirectory/file?query");
+    const string invokeTestDateString = "1937-07-02T05:35:02.0000000Z";
+    static readonly DateTime invokeTestDateTime = DateTime.Parse(invokeTestDateString).ToUniversalTime();
 
     [Benchmark]
     [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
@@ -524,7 +538,7 @@ for (var i = 0; i < " + InvokeIterationCountLarge + @"; i++)
         }
     }
 
-#if TRUE
+#if NEWINVOKE
     [Benchmark]
     [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
     public unsafe void InvokeMethodIntViaNewInvokeIcall ()
@@ -582,6 +596,24 @@ for (var i = 0; i < " + InvokeIterationCountLarge + @"; i++)
             var code = Interop.Runtime.InvokeJSFunction(
                 "perftesturi", 1,
                 thandle, pUri,
+                IntPtr.Zero, IntPtr.Zero,
+                IntPtr.Zero, IntPtr.Zero
+            );
+            if (code != 0)
+                throw new Exception("InvokeJSFunction failed");
+        }
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public unsafe void InvokeMethodDateViaNewInvokeIcall ()
+    {
+        var dt = invokeTestDateTime;
+        IntPtr pDt = (IntPtr)Unsafe.AsPointer(ref dt), thandle = typeof(DateTime).TypeHandle.Value;
+        for (var i = 0; i < InvokeIterationCountHuge; i++) {
+            var code = Interop.Runtime.InvokeJSFunction(
+                "perftestdate", 1,
+                thandle, pDt,
                 IntPtr.Zero, IntPtr.Zero,
                 IntPtr.Zero, IntPtr.Zero
             );
@@ -659,6 +691,20 @@ for (var i = 0; i < " + InvokeIterationCountLarge + @"; i++)
 
         for (var i = 0; i < InvokeIterationCountHuge; i++) {
             object res = Interop.Runtime.InvokeJSWithArgs(thisHandle, "perftesturi", args, out exception);
+            if (exception != 0)
+                throw new Exception("InvokeJSWithArgs failed");
+        }
+    }
+
+    [Benchmark]
+    [BenchmarkCategory(Categories.Runtime, Categories.OnlyWASM)]
+    public void InvokeMethodDateViaInvokeJSWithArgs () {
+        int exception;
+        var thisHandle = GetGlobalThisAsJSObjectHandle();
+        var args = new object[] { invokeTestDateTime };
+
+        for (var i = 0; i < InvokeIterationCountHuge; i++) {
+            object res = Interop.Runtime.InvokeJSWithArgs(thisHandle, "perftestdate", args, out exception);
             if (exception != 0)
                 throw new Exception("InvokeJSWithArgs failed");
         }
